@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hungry Hungry Hippos</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="landing">
+  <div class="landing-container">
+    <div class="logo-area">
+      <div class="hippo-icon">🦛</div>
+      <h1>Hungry Hungry<br>Hippos</h1>
+      <p class="tagline">A multiplayer meeting warm-up game.<br>Share a link. Chomp some balls. Have fun.</p>
+    </div>
+    <button id="create-btn" class="big-btn">Start a Game</button>
+    <p class="hint">Creates a room link you can share with your team</p>
+  </div>
+
+  <script>
+    document.getElementById('create-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('create-btn');
+      btn.disabled = true;
+      btn.textContent = 'Creating…';
+      try {
+        const res = await fetch('/create-room', { method: 'POST' });
+        const { code } = await res.json();
+        window.location.href = '/game/' + code;
+      } catch {
+        btn.disabled = false;
+        btn.textContent = 'Start a Game';
+        alert('Something went wrong. Try again!');
+      }
+    });
+  </script>
+</body>
+</html>

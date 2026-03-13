@@ -1,0 +1,16 @@
+{
+  "name": "hungry-hippos",
+  "version": "1.0.0",
+  "description": "Multiplayer Hungry Hungry Hippos — a real-time browser game for meetings",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "author": "Austin Smith",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3"
+  }
+}

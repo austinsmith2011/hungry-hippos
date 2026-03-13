@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Hungry Hungry Hippos</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="game-page">
+
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Lobby overlay -->
+  <div id="lobby-overlay" class="overlay">
+    <div class="overlay-panel">
+      <h2>🦛 Hungry Hippos</h2>
+      <p>Share this link — anyone who opens it joins the game!</p>
+      <div class="link-box">
+        <input id="room-link" type="text" readonly>
+        <button id="copy-btn">Copy</button>
+      </div>
+      <div id="player-dots" class="player-dots"></div>
+      <p id="player-count" style="font-size:0.9rem;color:var(--text-muted);margin-bottom:1rem;"></p>
+      <button id="start-btn" class="big-btn">Start Game</button>
+    </div>
+  </div>
+
+  <!-- Game-over overlay -->
+  <div id="gameover-overlay" class="overlay hidden">
+    <div class="overlay-panel">
+      <h2>Game Over!</h2>
+      <div id="final-scores" class="final-scores"></div>
+      <button id="replay-btn" class="big-btn">Play Again</button>
+    </div>
+  </div>
+
+  <!-- In-game scoreboard -->
+  <div id="scoreboard" class="scoreboard" style="display:none;"></div>
+
+  <!-- Desktop instruction -->
+  <div id="instruction" class="instruction" style="display:none;">
+    Hold <strong>SPACE</strong> to chomp!
+  </div>
+
+  <!-- Mobile chomp button -->
+  <button id="mobile-chomp" class="mobile-chomp" style="display:none;">
+    CHOMP!
+  </button>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/game.js"></script>
+</body>
+</html>
