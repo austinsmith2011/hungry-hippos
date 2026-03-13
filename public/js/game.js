@@ -212,46 +212,22 @@ function showPlaying() {
 /* ------------------------------------------------------------------ */
 /* Input handling                                                     */
 /* ------------------------------------------------------------------ */
-let chomping = false;
-
-function startChomp() {
-  if (!chomping) {
-    chomping = true;
-    socket.emit('chomp-start');
-    playChomp();
-  }
-}
-
-function endChomp() {
-  if (chomping) {
-    chomping = false;
-    socket.emit('chomp-end');
-  }
+function doChomp() {
+  socket.emit('chomp');
+  playChomp();
 }
 
 document.addEventListener('keydown', (e) => {
   if (e.code === 'Space' && phase === 'playing') {
     e.preventDefault();
-    startChomp();
+    if (!e.repeat) doChomp();
   }
 });
 
-document.addEventListener('keyup', (e) => {
-  if (e.code === 'Space') {
-    endChomp();
-  }
-});
-
-// Mobile touch
 mobileChomp.addEventListener('touchstart', (e) => {
   e.preventDefault();
-  startChomp();
+  doChomp();
 });
-mobileChomp.addEventListener('touchend', (e) => {
-  e.preventDefault();
-  endChomp();
-});
-mobileChomp.addEventListener('touchcancel', () => endChomp());
 
 /* ------------------------------------------------------------------ */
 /* Particles                                                          */

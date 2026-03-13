@@ -22,12 +22,12 @@ const MOUTH_LENGTH_MAX = 160;
 const MOUTH_EXTEND_SPEED = 12;
 const MOUTH_RETRACT_SPEED = 8;
 const MOUTH_WIDTH = 50;
-const CHOMP_COOLDOWN_MS = 300;
+const CHOMP_COOLDOWN_MS = 250;
 const MAX_PLAYERS = 20;
 const TARGET_BALLS = 30;
 const RESPAWN_BATCH = 5;
-const BALL_SPEED_MIN = 1.2;
-const BALL_SPEED_MAX = 3.5;
+const BALL_SPEED_MIN = 2.5;
+const BALL_SPEED_MAX = 6.0;
 const BALL_DAMPING = 0.9995;
 const BALL_BOUNCE_DAMPING = 0.9;
 const SCORE_WINDOW_MS = 15_000;
@@ -222,9 +222,20 @@ function tickBalls(room) {
 function tickPlayers(room) {
   const now = Date.now();
   for (const p of room.players.values()) {
-    if (p.chomping && p.mouthExtend < MOUTH_LENGTH_MAX) {
+    if (now < p.cooldownUntil) {
+      // In cooldown — mouth stays closed
+      p.mouthExtend = 0;
+      continue;
+    }
+
+    if (p.extending) {
+      // Extending outward
       p.mouthExtend = Math.min(p.mouthExtend + MOUTH_EXTEND_SPEED, MOUTH_LENGTH_MAX);
-    } else if (!p.chomping && p.mouthExtend > 0) {
+      if (p.mouthExtend >= MOUTH_LENGTH_MAX) {
+        p.extending = false; // hit max, start retracting
+      }
+    } else if (p.mouthExtend > 0) {
+      // Retracting
       p.mouthExtend = Math.max(p.mouthExtend - MOUTH_RETRACT_SPEED, 0);
       if (p.mouthExtend === 0) {
         p.cooldownUntil = now + CHOMP_COOLDOWN_MS;
@@ -392,7 +403,7 @@ io.on('connection', (socket) => {
       index: room.players.size,
       captures: [],
       mouthExtend: 0,
-      chomping: false,
+      extending: false,
       cooldownUntil: 0,
     };
 
@@ -418,7 +429,7 @@ io.on('connection', (socket) => {
     for (const p of currentRoom.players.values()) {
       p.captures = [];
       p.mouthExtend = 0;
-      p.chomping = false;
+      p.extending = false;
     }
     recalcPositions(currentRoom);
     spawnBalls(currentRoom);
@@ -438,19 +449,13 @@ io.on('connection', (socket) => {
     }, 1000);
   });
 
-  socket.on('chomp-start', () => {
+  socket.on('chomp', () => {
     if (!currentRoom || currentRoom.state !== 'playing') return;
     const player = currentRoom.players.get(socket.id);
     if (!player) return;
     if (Date.now() < player.cooldownUntil) return;
-    player.chomping = true;
-  });
-
-  socket.on('chomp-end', () => {
-    if (!currentRoom) return;
-    const player = currentRoom.players.get(socket.id);
-    if (!player) return;
-    player.chomping = false;
+    if (player.extending || player.mouthExtend > 0) return; // already mid-chomp
+    player.extending = true;
   });
 
   socket.on('disconnect', () => {
