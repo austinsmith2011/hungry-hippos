@@ -26,10 +26,10 @@ const CHOMP_COOLDOWN_MS = 300;
 const MAX_PLAYERS = 20;
 const TARGET_BALLS = 30;
 const RESPAWN_BATCH = 5;
-const BALL_SPEED_MIN = 0.6;
-const BALL_SPEED_MAX = 2.0;
-const SWIRL_STRENGTH = 0.003;
-const BALL_DAMPING = 0.999;
+const BALL_SPEED_MIN = 1.2;
+const BALL_SPEED_MAX = 3.5;
+const BALL_DAMPING = 0.9995;
+const BALL_BOUNCE_DAMPING = 0.9;
 const SCORE_WINDOW_MS = 15_000;
 
 const HIPPO_COLORS = [
@@ -93,7 +93,7 @@ function recalcPositions(room) {
 // ---------------------------------------------------------------------------
 function spawnBall(room) {
   const angle = Math.random() * Math.PI * 2;
-  const dist = Math.random() * ARENA_RADIUS * 0.4;
+  const dist = Math.random() * ARENA_RADIUS * 0.6;
   const speed = BALL_SPEED_MIN + Math.random() * (BALL_SPEED_MAX - BALL_SPEED_MIN);
   const dir = Math.random() * Math.PI * 2;
   const id = room.nextBallId++;
@@ -130,52 +130,88 @@ function replenishBalls(room) {
 }
 
 function tickBalls(room) {
-  for (const b of room.balls) {
-    if (!b.alive) continue;
+  const aliveBalls = room.balls.filter(b => b.alive);
 
-    // Swirl: apply gentle tangential force
-    const dist = Math.sqrt(b.x * b.x + b.y * b.y) || 1;
-    const nx = b.x / dist;
-    const ny = b.y / dist;
-    // tangent perpendicular to radius
-    b.vx += -ny * SWIRL_STRENGTH * dist;
-    b.vy += nx * SWIRL_STRENGTH * dist;
-
-    // Slight pull toward center so they don't all hug the wall
-    b.vx -= nx * 0.002 * dist;
-    b.vy -= ny * 0.002 * dist;
-
+  for (const b of aliveBalls) {
     b.vx *= BALL_DAMPING;
     b.vy *= BALL_DAMPING;
 
-    // Clamp speed
+    // Keep balls from going too slow — give them a nudge in their current direction
     const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
-    if (spd > BALL_SPEED_MAX * 1.5) {
-      b.vx = (b.vx / spd) * BALL_SPEED_MAX * 1.5;
-      b.vy = (b.vy / spd) * BALL_SPEED_MAX * 1.5;
+    if (spd > 0 && spd < BALL_SPEED_MIN) {
+      const scale = BALL_SPEED_MIN / spd;
+      b.vx *= scale;
+      b.vy *= scale;
     }
-    if (spd < BALL_SPEED_MIN * 0.5) {
-      const boost = BALL_SPEED_MIN / (spd || 1);
-      b.vx *= boost;
-      b.vy *= boost;
+    if (spd > BALL_SPEED_MAX * 2) {
+      const scale = (BALL_SPEED_MAX * 2) / spd;
+      b.vx *= scale;
+      b.vy *= scale;
     }
 
     b.x += b.vx;
     b.y += b.vy;
 
-    // Bounce off arena walls
-    const newDist = Math.sqrt(b.x * b.x + b.y * b.y);
-    const edgeLimit = ARENA_RADIUS - BALL_RADIUS - 10;
-    if (newDist > edgeLimit) {
-      const bnx = b.x / newDist;
-      const bny = b.y / newDist;
-      // reflect velocity
-      const dot = b.vx * bnx + b.vy * bny;
-      b.vx -= 2 * dot * bnx;
-      b.vy -= 2 * dot * bny;
-      // push inside
-      b.x = bnx * edgeLimit;
-      b.y = bny * edgeLimit;
+    // Bounce off arena wall
+    const dist = Math.sqrt(b.x * b.x + b.y * b.y);
+    const wallLimit = ARENA_RADIUS - BALL_RADIUS - 4;
+    if (dist > wallLimit) {
+      const nx = b.x / dist;
+      const ny = b.y / dist;
+      const dot = b.vx * nx + b.vy * ny;
+      b.vx = (b.vx - 2 * dot * nx) * BALL_BOUNCE_DAMPING;
+      b.vy = (b.vy - 2 * dot * ny) * BALL_BOUNCE_DAMPING;
+      b.x = nx * wallLimit;
+      b.y = ny * wallLimit;
+    }
+
+    // Bounce off hippo bodies
+    for (const p of room.players.values()) {
+      const dx = b.x - p.x;
+      const dy = b.y - p.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      const minDist = BALL_RADIUS + HIPPO_BODY_RADIUS;
+      if (d < minDist && d > 0) {
+        const nx = dx / d;
+        const ny = dy / d;
+        const dot = b.vx * nx + b.vy * ny;
+        if (dot < 0) {
+          b.vx -= 2 * dot * nx;
+          b.vy -= 2 * dot * ny;
+        }
+        // Push ball outside hippo
+        b.x = p.x + nx * (minDist + 1);
+        b.y = p.y + ny * (minDist + 1);
+      }
+    }
+  }
+
+  // Ball-to-ball collisions
+  for (let i = 0; i < aliveBalls.length; i++) {
+    const a = aliveBalls[i];
+    for (let j = i + 1; j < aliveBalls.length; j++) {
+      const b = aliveBalls[j];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      const minDist = BALL_RADIUS * 2;
+      if (d < minDist && d > 0) {
+        const nx = dx / d;
+        const ny = dy / d;
+        const relVel = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+        if (relVel > 0) {
+          a.vx -= relVel * nx;
+          a.vy -= relVel * ny;
+          b.vx += relVel * nx;
+          b.vy += relVel * ny;
+        }
+        // Separate
+        const overlap = (minDist - d) / 2;
+        a.x -= nx * overlap;
+        a.y -= ny * overlap;
+        b.x += nx * overlap;
+        b.y += ny * overlap;
+      }
     }
   }
 }
