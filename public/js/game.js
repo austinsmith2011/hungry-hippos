@@ -483,26 +483,36 @@ function drawSingleHippo(p, isMe) {
   ctx.arc(-bodyR * 0.6, bodyR * 0.7, 10, 0, Math.PI * 2);
   ctx.fill();
 
-  // "YOU" indicator — counter-rotate so text stays upright
-  if (isMe) {
+  // Name label — counter-rotate so text stays upright
+  {
+    const label = p.name || '???';
     ctx.save();
     ctx.translate(0, -bodyR - 18);
     ctx.rotate(-p.angle);
-    ctx.fillStyle = '#ff8906';
-    ctx.font = 'bold 13px sans-serif';
+    ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const tw = ctx.measureText('YOU').width + 14;
-    ctx.fillStyle = 'rgba(255,137,6,0.25)';
+    const tw = ctx.measureText(label).width + 14;
+    const pillW = isMe ? tw + 36 : tw;
+    ctx.fillStyle = isMe ? 'rgba(255,137,6,0.25)' : 'rgba(0,0,0,0.45)';
     ctx.beginPath();
     if (ctx.roundRect) {
-      ctx.roundRect(-tw / 2, -10, tw, 20, 8);
+      ctx.roundRect(-pillW / 2, -10, pillW, 20, 8);
     } else {
-      ctx.rect(-tw / 2, -10, tw, 20);
+      ctx.rect(-pillW / 2, -10, pillW, 20);
     }
     ctx.fill();
-    ctx.fillStyle = '#ff8906';
-    ctx.fillText('YOU', 0, 1);
+    if (isMe) {
+      ctx.fillStyle = '#ff8906';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.fillText('YOU', -pillW / 2 + 18, 1);
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(label, (36 - pillW) / 2 + tw / 2 + 4, 1);
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillText(label, 0, 1);
+    }
     ctx.restore();
   }
 
