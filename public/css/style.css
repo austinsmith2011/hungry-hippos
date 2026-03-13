@@ -376,6 +376,31 @@ html, body {
   .mobile-chomp { display: block; }
 }
 
+/* Mute button */
+.mute-btn {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(26, 25, 41, 0.9);
+  backdrop-filter: blur(6px);
+  color: var(--text);
+  font-size: 1.2rem;
+  cursor: pointer;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+}
+
+.mute-btn:hover {
+  opacity: 0.8;
+}
+
 /* Instruction badge */
 .instruction {
   position: fixed;

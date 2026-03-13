@@ -3,12 +3,14 @@
 /* ------------------------------------------------------------------ */
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
+let muted = false;
 
 function ensureAudio() {
   if (!audioCtx) audioCtx = new AudioCtx();
 }
 
 function playChomp() {
+  if (muted) return;
   ensureAudio();
   const o = audioCtx.createOscillator();
   const g = audioCtx.createGain();
@@ -23,6 +25,7 @@ function playChomp() {
 }
 
 function playCapture() {
+  if (muted) return;
   ensureAudio();
   const o = audioCtx.createOscillator();
   const g = audioCtx.createGain();
@@ -62,6 +65,12 @@ const particles = [];
 const roomCode = window.location.pathname.split('/').pop();
 
 // ---- DOM refs ----
+const muteBtn = document.getElementById('mute-btn');
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+});
+
 const nameOverlay = document.getElementById('name-overlay');
 const nameInput = document.getElementById('name-input');
 const joinBtn = document.getElementById('join-btn');
