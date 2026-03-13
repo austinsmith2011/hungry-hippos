@@ -494,7 +494,7 @@ function drawSingleHippo(p, isMe) {
 
   // Name label — counter-rotate so text stays upright
   {
-    const label = p.name || '???';
+    const label = isMe ? 'YOU' : (p.name || '???');
     ctx.save();
     ctx.translate(0, -bodyR - 18);
     ctx.rotate(-p.angle);
@@ -502,26 +502,16 @@ function drawSingleHippo(p, isMe) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const tw = ctx.measureText(label).width + 14;
-    const pillW = isMe ? tw + 36 : tw;
     ctx.fillStyle = isMe ? 'rgba(255,137,6,0.25)' : 'rgba(0,0,0,0.45)';
     ctx.beginPath();
     if (ctx.roundRect) {
-      ctx.roundRect(-pillW / 2, -10, pillW, 20, 8);
+      ctx.roundRect(-tw / 2, -10, tw, 20, 8);
     } else {
-      ctx.rect(-pillW / 2, -10, pillW, 20);
+      ctx.rect(-tw / 2, -10, tw, 20);
     }
     ctx.fill();
-    if (isMe) {
-      ctx.fillStyle = '#ff8906';
-      ctx.font = 'bold 9px sans-serif';
-      ctx.fillText('YOU', -pillW / 2 + 18, 1);
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(label, (36 - pillW) / 2 + tw / 2 + 4, 1);
-    } else {
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillText(label, 0, 1);
-    }
+    ctx.fillStyle = isMe ? '#ff8906' : 'rgba(255,255,255,0.85)';
+    ctx.fillText(label, 0, 1);
     ctx.restore();
   }
 
