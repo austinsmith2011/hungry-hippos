@@ -51,7 +51,7 @@ const MOUTH_WIDTH = 50;
 let myId = null;
 let myColor = null;
 let gameState = null;   // { players, balls, state }
-let phase = 'lobby';    // lobby | countdown | playing | gameover
+let phase = 'lobby';    // lobby | countdown | playing
 let countdownNum = 0;
 
 // Captured-ball particles
@@ -62,17 +62,14 @@ const roomCode = window.location.pathname.split('/').pop();
 
 // ---- DOM refs ----
 const lobbyOverlay = document.getElementById('lobby-overlay');
-const gameoverOverlay = document.getElementById('gameover-overlay');
 const scoreboard = document.getElementById('scoreboard');
 const instruction = document.getElementById('instruction');
 const mobileChomp = document.getElementById('mobile-chomp');
 const roomLinkInput = document.getElementById('room-link');
 const copyBtn = document.getElementById('copy-btn');
 const startBtn = document.getElementById('start-btn');
-const replayBtn = document.getElementById('replay-btn');
 const playerDots = document.getElementById('player-dots');
 const playerCount = document.getElementById('player-count');
-const finalScores = document.getElementById('final-scores');
 
 /* ------------------------------------------------------------------ */
 /* Canvas sizing                                                      */
@@ -107,7 +104,6 @@ socket.on('countdown', (num) => {
   phase = 'countdown';
   countdownNum = num;
   lobbyOverlay.classList.add('hidden');
-  gameoverOverlay.classList.add('hidden');
   scoreboard.style.display = 'none';
   instruction.style.display = 'none';
   mobileChomp.style.display = 'none';
@@ -128,10 +124,6 @@ socket.on('game-state', (data) => {
     }
   }
   gameState = data;
-});
-
-socket.on('game-over', (scores) => {
-  showGameOver(scores);
 });
 
 socket.on('error-msg', (msg) => {
@@ -164,10 +156,6 @@ startBtn.addEventListener('click', () => {
   socket.emit('start-game');
 });
 
-replayBtn.addEventListener('click', () => {
-  socket.emit('start-game');
-});
-
 /* ------------------------------------------------------------------ */
 /* Phase transitions                                                  */
 /* ------------------------------------------------------------------ */
@@ -178,7 +166,6 @@ function isTouchDevice() {
 function showPlaying() {
   phase = 'playing';
   lobbyOverlay.classList.add('hidden');
-  gameoverOverlay.classList.add('hidden');
   scoreboard.style.display = '';
   if (isTouchDevice()) {
     mobileChomp.style.display = 'block';
@@ -192,46 +179,6 @@ function showPlaying() {
       setTimeout(() => { instruction.style.display = 'none'; }, 600);
     }, 4000);
   }
-}
-
-function playGameOverFanfare() {
-  ensureAudio();
-  const notes = [523, 659, 784, 1047];
-  notes.forEach((freq, i) => {
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.type = 'sine';
-    o.frequency.value = freq;
-    g.gain.setValueAtTime(0.1, audioCtx.currentTime + i * 0.12);
-    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.12 + 0.3);
-    o.connect(g).connect(audioCtx.destination);
-    o.start(audioCtx.currentTime + i * 0.12);
-    o.stop(audioCtx.currentTime + i * 0.12 + 0.3);
-  });
-}
-
-function showGameOver(scores) {
-  phase = 'gameover';
-  scoreboard.style.display = 'none';
-  instruction.style.display = 'none';
-  mobileChomp.style.display = 'none';
-  gameoverOverlay.classList.remove('hidden');
-  playGameOverFanfare();
-
-  finalScores.innerHTML = '';
-  scores.forEach((s, i) => {
-    const row = document.createElement('div');
-    row.className = 'final-score-row';
-    const isMe = s.id === myId;
-    const medal = i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : '';
-    row.innerHTML = `
-      <span class="final-rank">${medal}${i + 1}.</span>
-      <span class="score-dot" style="background:${s.color}"></span>
-      ${isMe ? '<span class="you-tag">YOU</span>' : '<span></span>'}
-      <span class="final-score-val">${s.score} ball${s.score !== 1 ? 's' : ''}</span>
-    `;
-    finalScores.appendChild(row);
-  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -325,6 +272,10 @@ function render() {
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
+  const cx = w / 2;
+  const cy = h / 2;
+  const scale = Math.min(w, h) / (ARENA_RADIUS * 2 + 120);
+
   if (phase === 'lobby') return;
 
   // Draw countdown
@@ -336,7 +287,6 @@ function render() {
     if (gameState) drawBalls();
     if (gameState) drawHippos();
     ctx.restore();
-    // Big countdown number
     ctx.fillStyle = 'rgba(15, 14, 23, 0.6)';
     ctx.fillRect(0, 0, w, h);
     ctx.font = 'bold 120px sans-serif';
@@ -351,10 +301,6 @@ function render() {
   }
 
   if (!gameState) return;
-
-  const cx = w / 2;
-  const cy = h / 2;
-  const scale = Math.min(w, h) / (ARENA_RADIUS * 2 + 120);
 
   ctx.save();
   ctx.translate(cx, cy);
@@ -582,7 +528,7 @@ function drawParticles() {
 function updateScoreboard() {
   if (!gameState || !gameState.players || gameState.players.length === 0) return;
   const sorted = [...gameState.players].sort((a, b) => b.score - a.score);
-  let html = '<h3>Scores</h3>';
+  let html = '<h3>Last 15s</h3>';
   for (const p of sorted) {
     const isMe = p.id === myId;
     html += `<div class="score-row">

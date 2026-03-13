@@ -24,11 +24,13 @@ const MOUTH_RETRACT_SPEED = 8;
 const MOUTH_WIDTH = 50;
 const CHOMP_COOLDOWN_MS = 300;
 const MAX_PLAYERS = 20;
-const NUM_BALLS = 40;
+const TARGET_BALLS = 30;
+const RESPAWN_BATCH = 5;
 const BALL_SPEED_MIN = 0.6;
 const BALL_SPEED_MAX = 2.0;
 const SWIRL_STRENGTH = 0.003;
 const BALL_DAMPING = 0.999;
+const SCORE_WINDOW_MS = 15_000;
 
 const HIPPO_COLORS = [
   '#e74c3c', '#2ecc71', '#3498db', '#f1c40f',
@@ -52,9 +54,10 @@ function createRoom(code) {
     code,
     players: new Map(),
     balls: [],
-    state: 'lobby', // lobby | playing | gameover
+    state: 'lobby', // lobby | countdown | playing
     loopInterval: null,
     nextColorIndex: 0,
+    nextBallId: 0,
   };
 }
 
@@ -88,21 +91,41 @@ function recalcPositions(room) {
 // ---------------------------------------------------------------------------
 // Ball helpers
 // ---------------------------------------------------------------------------
+function spawnBall(room) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = Math.random() * ARENA_RADIUS * 0.4;
+  const speed = BALL_SPEED_MIN + Math.random() * (BALL_SPEED_MAX - BALL_SPEED_MIN);
+  const dir = Math.random() * Math.PI * 2;
+  const id = room.nextBallId++;
+  room.balls.push({
+    id,
+    x: Math.cos(angle) * dist,
+    y: Math.sin(angle) * dist,
+    vx: Math.cos(dir) * speed,
+    vy: Math.sin(dir) * speed,
+    alive: true,
+  });
+}
+
 function spawnBalls(room) {
   room.balls = [];
-  for (let i = 0; i < NUM_BALLS; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const dist = Math.random() * ARENA_RADIUS * 0.5;
-    const speed = BALL_SPEED_MIN + Math.random() * (BALL_SPEED_MAX - BALL_SPEED_MIN);
-    const dir = Math.random() * Math.PI * 2;
-    room.balls.push({
-      id: i,
-      x: Math.cos(angle) * dist,
-      y: Math.sin(angle) * dist,
-      vx: Math.cos(dir) * speed,
-      vy: Math.sin(dir) * speed,
-      alive: true,
-    });
+  room.nextBallId = 0;
+  for (let i = 0; i < TARGET_BALLS; i++) {
+    spawnBall(room);
+  }
+}
+
+function replenishBalls(room) {
+  const alive = room.balls.filter(b => b.alive).length;
+  if (alive < TARGET_BALLS) {
+    const toSpawn = Math.min(RESPAWN_BATCH, TARGET_BALLS - alive);
+    for (let i = 0; i < toSpawn; i++) {
+      spawnBall(room);
+    }
+  }
+  // Clean up dead balls to prevent array from growing forever
+  if (room.balls.length > TARGET_BALLS * 3) {
+    room.balls = room.balls.filter(b => b.alive);
   }
 }
 
@@ -190,11 +213,10 @@ function checkMouthCollision(room, player) {
 
   for (const b of room.balls) {
     if (!b.alive) continue;
-    // Point-to-segment distance
     const dist = pointToSegmentDist(b.x, b.y, baseX, baseY, tipX, tipY);
     if (dist < BALL_RADIUS + MOUTH_WIDTH / 2) {
       b.alive = false;
-      player.score++;
+      player.captures.push(Date.now());
     }
   }
 }
@@ -215,21 +237,33 @@ function pointToSegmentDist(px, py, ax, ay, bx, by) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+function rollingScore(player) {
+  const cutoff = Date.now() - SCORE_WINDOW_MS;
+  return player.captures.filter(t => t >= cutoff).length;
+}
+
+function pruneCaptures(room) {
+  const cutoff = Date.now() - SCORE_WINDOW_MS;
+  for (const p of room.players.values()) {
+    p.captures = p.captures.filter(t => t >= cutoff);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Game loop
 // ---------------------------------------------------------------------------
 function startGameLoop(room) {
   if (room.loopInterval) clearInterval(room.loopInterval);
+  let tickCount = 0;
   room.loopInterval = setInterval(() => {
     tickBalls(room);
     tickPlayers(room);
+    replenishBalls(room);
 
-    const aliveBalls = room.balls.filter(b => b.alive).length;
-    if (aliveBalls === 0 && room.state === 'playing') {
-      room.state = 'gameover';
-      clearInterval(room.loopInterval);
-      room.loopInterval = null;
-      io.to(room.code).emit('game-over', buildScoreboard(room));
+    // Prune old capture timestamps every ~2 seconds
+    tickCount++;
+    if (tickCount % 120 === 0) {
+      pruneCaptures(room);
     }
 
     io.to(room.code).emit('game-state', buildGameState(room));
@@ -252,22 +286,13 @@ function buildGameState(room) {
       y: p.y,
       angle: p.angle,
       color: p.color,
-      score: p.score,
+      score: rollingScore(p),
       mouthExtend: p.mouthExtend,
       chomping: p.chomping,
     });
   }
   const balls = room.balls.filter(b => b.alive).map(b => ({ id: b.id, x: b.x, y: b.y }));
   return { players, balls, state: room.state };
-}
-
-function buildScoreboard(room) {
-  const scores = [];
-  for (const p of room.players.values()) {
-    scores.push({ id: p.id, color: p.color, score: p.score });
-  }
-  scores.sort((a, b) => b.score - a.score);
-  return scores;
 }
 
 function buildLobbyState(room) {
@@ -325,7 +350,7 @@ io.on('connection', (socket) => {
       y: 0,
       angle: 0,
       index: room.players.size,
-      score: 0,
+      captures: [],
       mouthExtend: 0,
       chomping: false,
       cooldownUntil: 0,
@@ -346,13 +371,12 @@ io.on('connection', (socket) => {
 
   socket.on('start-game', () => {
     if (!currentRoom) return;
-    if (currentRoom.state !== 'lobby' && currentRoom.state !== 'gameover') return;
-    if (currentRoom.state === 'countdown') return;
+    if (currentRoom.state !== 'lobby') return;
 
     currentRoom.state = 'countdown';
 
     for (const p of currentRoom.players.values()) {
-      p.score = 0;
+      p.captures = [];
       p.mouthExtend = 0;
       p.chomping = false;
     }
