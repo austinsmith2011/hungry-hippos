@@ -256,9 +256,10 @@ html, body {
   background: rgba(26, 25, 41, 0.9);
   backdrop-filter: blur(6px);
   border-radius: 12px;
-  padding: 12px 16px;
-  min-width: 140px;
+  padding: 12px 0;
+  min-width: 170px;
   z-index: 50;
+  overflow: hidden;
 }
 
 .scoreboard h3 {
@@ -266,16 +267,23 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--text-muted);
-  margin-bottom: 8px;
+  margin: 0 16px 8px;
+  position: relative;
 }
 
 .score-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 32px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 3px 0;
+  padding: 3px 16px;
+  height: 28px;
   font-size: 0.9rem;
   font-weight: 600;
+  transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .score-dot {

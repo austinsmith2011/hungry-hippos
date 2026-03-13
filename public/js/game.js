@@ -529,20 +529,57 @@ function drawParticles() {
   ctx.globalAlpha = 1;
 }
 
+const SCORE_ROW_HEIGHT = 28;
+const scoreRowMap = new Map();
+let scoreHeaderCreated = false;
+
 function updateScoreboard() {
   if (!gameState || !gameState.players || gameState.players.length === 0) return;
+
+  if (!scoreHeaderCreated) {
+    scoreboard.innerHTML = '<h3>Last 15s</h3>';
+    scoreHeaderCreated = true;
+  }
+
   const sorted = [...gameState.players].sort((a, b) => b.score - a.score);
-  let html = '<h3>Last 15s</h3>';
-  for (const p of sorted) {
+
+  // Remove rows for players who left
+  for (const [id, el] of scoreRowMap) {
+    if (!sorted.find(p => p.id === id)) {
+      el.remove();
+      scoreRowMap.delete(id);
+    }
+  }
+
+  sorted.forEach((p, i) => {
+    let row = scoreRowMap.get(p.id);
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'score-row';
+      row.innerHTML = `
+        <span class="score-dot" style="background:${p.color}"></span>
+        <span class="score-name"></span>
+        <span class="score-label"></span>`;
+      scoreboard.appendChild(row);
+      scoreRowMap.set(p.id, row);
+      // Start at correct position immediately (no animation on first appearance)
+      row.style.transition = 'none';
+      row.style.transform = `translateY(${i * SCORE_ROW_HEIGHT}px)`;
+      requestAnimationFrame(() => {
+        row.style.transition = '';
+      });
+    }
+
     const isMe = p.id === myId;
     const display = p.name || '???';
-    html += `<div class="score-row">
-      <span class="score-dot" style="background:${p.color}"></span>
-      <span class="score-name">${isMe ? '<span class="you-tag">YOU</span> ' : ''}${escHtml(display)}</span>
-      <span class="score-label">${p.score}</span>
-    </div>`;
-  }
-  scoreboard.innerHTML = html;
+    row.querySelector('.score-name').innerHTML =
+      (isMe ? '<span class="you-tag">YOU</span> ' : '') + escHtml(display);
+    row.querySelector('.score-label').textContent = p.score;
+    row.style.transform = `translateY(${i * SCORE_ROW_HEIGHT}px)`;
+  });
+
+  // Resize container to fit all rows (header ~32px + rows)
+  scoreboard.style.height = (40 + sorted.length * SCORE_ROW_HEIGHT) + 'px';
 }
 
 /* ------------------------------------------------------------------ */
