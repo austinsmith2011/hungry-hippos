@@ -50,8 +50,9 @@ const MOUTH_WIDTH = 50;
 
 let myId = null;
 let myColor = null;
+let myName = null;
 let gameState = null;   // { players, balls, state }
-let phase = 'lobby';    // lobby | countdown | playing
+let phase = 'name';     // name | lobby | countdown | playing
 let countdownNum = 0;
 
 // Captured-ball particles
@@ -61,6 +62,9 @@ const particles = [];
 const roomCode = window.location.pathname.split('/').pop();
 
 // ---- DOM refs ----
+const nameOverlay = document.getElementById('name-overlay');
+const nameInput = document.getElementById('name-input');
+const joinBtn = document.getElementById('join-btn');
 const lobbyOverlay = document.getElementById('lobby-overlay');
 const scoreboard = document.getElementById('scoreboard');
 const instruction = document.getElementById('instruction');
@@ -68,7 +72,7 @@ const mobileChomp = document.getElementById('mobile-chomp');
 const roomLinkInput = document.getElementById('room-link');
 const copyBtn = document.getElementById('copy-btn');
 const startBtn = document.getElementById('start-btn');
-const playerDots = document.getElementById('player-dots');
+const playerList = document.getElementById('player-list');
 const playerCount = document.getElementById('player-count');
 
 /* ------------------------------------------------------------------ */
@@ -83,10 +87,28 @@ window.addEventListener('resize', resize);
 resize();
 
 /* ------------------------------------------------------------------ */
+/* Name entry                                                         */
+/* ------------------------------------------------------------------ */
+nameInput.focus();
+
+function submitName() {
+  const name = nameInput.value.trim();
+  if (!name) { nameInput.focus(); return; }
+  myName = name;
+  nameOverlay.classList.add('hidden');
+  lobbyOverlay.classList.remove('hidden');
+  phase = 'lobby';
+  socket.emit('join-room', { code: roomCode, name: myName });
+}
+
+joinBtn.addEventListener('click', submitName);
+nameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitName();
+});
+
+/* ------------------------------------------------------------------ */
 /* Socket events                                                      */
 /* ------------------------------------------------------------------ */
-socket.emit('join-room', roomCode);
-
 socket.on('joined', (data) => {
   myId = data.playerId;
   myColor = data.color;
@@ -135,14 +157,20 @@ socket.on('error-msg', (msg) => {
 /* Lobby UI                                                           */
 /* ------------------------------------------------------------------ */
 function renderLobbyPlayers(players) {
-  playerDots.innerHTML = '';
+  playerList.innerHTML = '';
   players.forEach(p => {
-    const dot = document.createElement('div');
-    dot.className = 'player-dot' + (p.id === myId ? ' me' : '');
-    dot.style.background = p.color;
-    playerDots.appendChild(dot);
+    const item = document.createElement('div');
+    item.className = 'player-list-item' + (p.id === myId ? ' me' : '');
+    item.innerHTML = `<span class="player-list-dot" style="background:${p.color}"></span>${escHtml(p.name)}`;
+    playerList.appendChild(item);
   });
   playerCount.textContent = `${players.length} player${players.length !== 1 ? 's' : ''} in lobby`;
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
 }
 
 copyBtn.addEventListener('click', () => {
@@ -531,9 +559,10 @@ function updateScoreboard() {
   let html = '<h3>Last 15s</h3>';
   for (const p of sorted) {
     const isMe = p.id === myId;
+    const display = p.name || '???';
     html += `<div class="score-row">
       <span class="score-dot" style="background:${p.color}"></span>
-      ${isMe ? '<span class="you-tag">YOU</span>' : ''}
+      <span class="score-name">${isMe ? '<span class="you-tag">YOU</span> ' : ''}${escHtml(display)}</span>
       <span class="score-label">${p.score}</span>
     </div>`;
   }

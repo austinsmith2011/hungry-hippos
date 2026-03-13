@@ -10,8 +10,20 @@
 
   <canvas id="game-canvas"></canvas>
 
+  <!-- Name entry overlay -->
+  <div id="name-overlay" class="overlay">
+    <div class="overlay-panel">
+      <h2>🦛 Hungry Hippos</h2>
+      <p>Enter your name to join!</p>
+      <div class="name-input-row">
+        <input id="name-input" type="text" placeholder="Your name" maxlength="16" autocomplete="off">
+      </div>
+      <button id="join-btn" class="big-btn">Join Game</button>
+    </div>
+  </div>
+
   <!-- Lobby overlay -->
-  <div id="lobby-overlay" class="overlay">
+  <div id="lobby-overlay" class="overlay hidden">
     <div class="overlay-panel">
       <h2>🦛 Hungry Hippos</h2>
       <p>Share this link — anyone who opens it joins the game!</p>
@@ -19,7 +31,7 @@
         <input id="room-link" type="text" readonly>
         <button id="copy-btn">Copy</button>
       </div>
-      <div id="player-dots" class="player-dots"></div>
+      <div id="player-list" class="player-list"></div>
       <p id="player-count" style="font-size:0.9rem;color:var(--text-muted);margin-bottom:1rem;"></p>
       <button id="start-btn" class="big-btn">Start Game</button>
     </div>

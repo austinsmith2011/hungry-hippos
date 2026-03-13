@@ -318,6 +318,7 @@ function buildGameState(room) {
   for (const p of room.players.values()) {
     players.push({
       id: p.id,
+      name: p.name,
       x: p.x,
       y: p.y,
       angle: p.angle,
@@ -334,7 +335,7 @@ function buildGameState(room) {
 function buildLobbyState(room) {
   const players = [];
   for (const p of room.players.values()) {
-    players.push({ id: p.id, color: p.color });
+    players.push({ id: p.id, name: p.name, color: p.color });
   }
   return { players, state: room.state, code: room.code };
 }
@@ -364,7 +365,10 @@ io.on('connection', (socket) => {
   let currentRoom = null;
   let playerId = null;
 
-  socket.on('join-room', (code) => {
+  socket.on('join-room', (data) => {
+    const code = data && data.code;
+    const name = (data && typeof data.name === 'string' ? data.name.trim() : '').slice(0, 16) || 'Hippo';
+
     const room = rooms.get(code);
     if (!room) {
       socket.emit('error-msg', 'Room not found');
@@ -375,12 +379,12 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // If the game is already playing, allow spectating state but still add them
     currentRoom = room;
     playerId = socket.id;
 
     const player = {
       id: socket.id,
+      name,
       color: assignColor(room),
       x: 0,
       y: 0,
